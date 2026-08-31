@@ -7,12 +7,18 @@ class Database {
     private function __construct() {
         $this->dbFile = __DIR__ . '/../storage/ghosthades.sqlite';
         
-        // Auto-create storage folder if missing
+        // Create storage folder if missing
         if (!is_dir(__DIR__ . '/../storage')) {
             mkdir(__DIR__ . '/../storage', 0777, true);
         }
         
         try {
+            // Create the SQLite file if it doesn't exist
+            if (!file_exists($this->dbFile)) {
+                touch($this->dbFile);
+                chmod($this->dbFile, 0666);
+            }
+            
             $this->db = new PDO('sqlite:' . $this->dbFile);
             $this->db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
             $this->db->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
@@ -60,9 +66,7 @@ class Database {
             domain_stats TEXT,
             status TEXT DEFAULT 'completed',
             processed_at DATETIME DEFAULT NULL,
-            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-            INDEX(user_id),
-            INDEX(batch_id)
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         );
         
         CREATE TABLE IF NOT EXISTS batch_jobs (
@@ -116,12 +120,14 @@ class Database {
         ";
         $this->db->exec($sql);
         
-        // Create default admin (hidden)
-        if (!adminExists()) {
-            createDefaultAdmin();
+        // Check if admin exists
+        $stmt = $this->db->query("SELECT COUNT(*) FROM users WHERE role = 'admin'");
+        if ($stmt->fetchColumn() == 0) {
+            $hash = password_hash('admin123', PASSWORD_DEFAULT);
+            $stmt = $this->db->prepare("INSERT INTO users (username, password, role, daily_limit, remaining_limit) VALUES (?, ?, 'admin', 99999, 99999)");
+            $stmt->execute(['admin', $hash]);
         }
         
-        // Default settings
         $settings = [
             'daily_limit' => '500',
             'extraction_timeout' => '60',
