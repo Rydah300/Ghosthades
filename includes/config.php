@@ -3,11 +3,6 @@
 // SQLITE — NO EXTERNAL DATABASE NEEDED
 // ============================================
 
-// Show errors temporarily
-ini_set('display_errors', 1);
-ini_set('display_startup_errors', 1);
-error_reporting(E_ALL);
-
 // Load database class FIRST
 require_once __DIR__ . '/db_sqlite.php';
 
