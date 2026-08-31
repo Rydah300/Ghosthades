@@ -1,5 +1,11 @@
 {
+  "name": "ghosthades/lead-extractor",
+  "description": "Lead extraction tool with batch processing",
+  "type": "project",
   "require": {
-    "php": ">=7.4"
+    "php": ">=8.0"
+  },
+  "config": {
+    "optimize-autoloader": true
   }
 }
