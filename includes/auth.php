@@ -1,5 +1,4 @@
 <?php
-// Force login check on every protected page
 function requireLogin() {
     if (!isset($_SESSION['user_id'])) {
         header('Location: /');
@@ -22,7 +21,8 @@ function checkUserLimits($user_id) {
     $user = $stmt->fetch(PDO::FETCH_ASSOC);
     if (!$user) return ['daily' => 0, 'remaining' => 0, 'used' => 0];
     
-    $stmt = $db->prepare("SELECT SUM(total) FROM extractions WHERE user_id = ? AND DATE(created_at) = CURDATE() AND status != 'failed'");
+    // SQLite date format — use date('now') instead of CURDATE()
+    $stmt = $db->prepare("SELECT SUM(total) FROM extractions WHERE user_id = ? AND DATE(created_at) = DATE('now') AND status != 'failed'");
     $stmt->execute([$user_id]);
     $today_used = (int)$stmt->fetchColumn();
     
@@ -64,7 +64,8 @@ function deductLimit($user_id, $amount) {
 
 function redeemLicense($user_id, $code) {
     $db = Database::getInstance()->getConnection();
-    $stmt = $db->prepare("SELECT id, limit_amount FROM licenses WHERE code = ? AND used = FALSE AND (expiry_date IS NULL OR expiry_date > NOW())");
+    // SQLite uses datetime('now') instead of NOW()
+    $stmt = $db->prepare("SELECT id, limit_amount FROM licenses WHERE code = ? AND used = 0 AND (expiry_date IS NULL OR expiry_date > datetime('now'))");
     $stmt->execute([$code]);
     $license = $stmt->fetch(PDO::FETCH_ASSOC);
     if (!$license) return ['success' => false, 'message' => 'Invalid or used license.'];
@@ -73,7 +74,7 @@ function redeemLicense($user_id, $code) {
     try {
         $stmt = $db->prepare("UPDATE users SET remaining_limit = remaining_limit + ? WHERE id = ?");
         $stmt->execute([$license['limit_amount'], $user_id]);
-        $stmt = $db->prepare("UPDATE licenses SET used = TRUE, user_id = ?, redeemed_at = NOW() WHERE id = ?");
+        $stmt = $db->prepare("UPDATE licenses SET used = 1, user_id = ?, redeemed_at = datetime('now') WHERE id = ?");
         $stmt->execute([$user_id, $license['id']]);
         logAction($user_id, 'Redeemed license: ' . $code);
         $db->commit();
@@ -157,7 +158,7 @@ function createRandomUsers($count, $daily_limit = 500, $remaining_limit = 0) {
             $users[] = ['username' => $username, 'password' => $password];
             logAction($_SESSION['user_id'] ?? 0, 'Generated user: ' . $username);
         } catch(PDOException $e) {
-            if ($e->errorInfo[1] == 1062) {
+            if ($e->errorInfo[1] == 19) { // SQLite unique constraint error
                 $username = generateRandomUsername() . rand(10, 99);
                 $stmt->execute([$username, $hash, $daily_limit, $remaining_limit]);
                 $users[] = ['username' => $username, 'password' => $password];
