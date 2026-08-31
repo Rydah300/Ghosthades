@@ -1,0 +1,43 @@
+RewriteEngine On
+
+# Remove .php extension
+RewriteCond %{REQUEST_FILENAME}.php -f
+RewriteRule ^([^/]+)/?$ $1.php [L]
+
+# Admin and dashboard
+RewriteRule ^admin/?$ admin.php [L]
+RewriteRule ^dashboard/?$ dashboard.php [L]
+
+# API routes
+RewriteRule ^api/extract/?$ api/extract.php [L]
+RewriteRule ^api/batch/?$ api/batch.php [L]
+RewriteRule ^api/saved/?$ api/saved.php [L]
+RewriteRule ^api/telegram/?$ api/telegram.php [L]
+RewriteRule ^api/licenses/?$ api/licenses.php [L]
+RewriteRule ^api/users/?$ api/users.php [L]
+RewriteRule ^api/stats/?$ api/stats.php [L]
+
+# Auto-add .php
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteCond %{REQUEST_FILENAME}\.php -f
+RewriteRule ^(.*)$ $1.php [L]
+
+# Security
+<FilesMatch "\.php$">
+    Order Allow,Deny
+    Deny from all
+</FilesMatch>
+
+<FilesMatch "^(index|dashboard|admin|api/.*)\.php$">
+    Order Allow,Deny
+    Allow from all
+</FilesMatch>
+
+Options -Indexes
+php_flag display_errors off
+php_flag expose_php off
+
+<Directory "storage">
+    Order Allow,Deny
+    Deny from all
+</Directory>
