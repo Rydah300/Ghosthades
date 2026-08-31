@@ -1,10 +1,28 @@
 <?php
 // ============================================
-// SQLITE — NO EXTERNAL DATABASE NEEDED
+// SQLITE — FIXED SESSION + DATABASE
 // ============================================
 
-// Load database class FIRST
-require_once __DIR__ . '/db_sqlite.php';
+// --- FIX SESSION: Use storage folder for sessions ---
+$storagePath = __DIR__ . '/../storage';
+if (!is_dir($storagePath)) {
+    mkdir($storagePath, 0777, true);
+    chmod($storagePath, 0777);
+}
+
+// Set session save path to storage folder
+ini_set('session.save_path', $storagePath);
+session_save_path($storagePath);
+
+// Session settings
+ini_set('session.gc_probability', 1);
+ini_set('session.gc_divisor', 100);
+ini_set('session.use_cookies', 1);
+ini_set('session.use_only_cookies', 1);
+ini_set('session.cookie_httponly', 1);
+
+// --- Load Database ---
+require_once __DIR__ . '/db.php';
 
 // --- App Config ---
 define('SECRET_KEY', getenv('SECRET_KEY') ?: 'gh0sth4d3s_auto_' . md5(__DIR__));
@@ -15,24 +33,24 @@ define('CAPTCHA_SERVICE', getenv('CAPTCHA_SERVICE') ?: '2captcha');
 define('TELEGRAM_CHANNEL_URL', getenv('TELEGRAM_CHANNEL_URL') ?: '');
 define('APP_PORT', getenv('PORT') ?: '8080');
 
+// --- Start Session ---
 session_start();
+
+// --- Error Reporting ---
 error_reporting(0);
 ini_set('display_errors', 0);
 
-// Anti-inspect
+// --- Anti-inspect ---
 if (isset($_SERVER['HTTP_USER_AGENT']) && preg_match('/curl|wget|postman|insomnia|python|go-http|java/i', $_SERVER['HTTP_USER_AGENT'])) {
     http_response_code(403);
     die('🚫 access denied.');
 }
 
-// Auto-create storage
-if (!is_dir(__DIR__ . '/../storage')) {
-    mkdir(__DIR__ . '/../storage', 0777, true);
-}
-
+// --- Default Admin Credentials (hidden) ---
 define('DEFAULT_ADMIN_USER', 'admin');
 define('DEFAULT_ADMIN_PASS', 'admin123');
 
+// --- Helper Functions ---
 function adminExists() {
     try {
         $db = Database::getInstance()->getConnection();
