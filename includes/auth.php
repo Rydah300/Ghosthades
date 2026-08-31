@@ -1,7 +1,11 @@
 <?php
+// ============================================
+// AUTH — LOGIN, LIMITS, LICENSES
+// ============================================
+
 function requireLogin() {
     if (!isset($_SESSION['user_id'])) {
-        header('Location: /');
+        header('Location: index.php');
         exit;
     }
 }
@@ -21,7 +25,7 @@ function checkUserLimits($user_id) {
     $user = $stmt->fetch(PDO::FETCH_ASSOC);
     if (!$user) return ['daily' => 0, 'remaining' => 0, 'used' => 0];
     
-    // SQLite date format — use date('now') instead of CURDATE()
+    // SQLite date format
     $stmt = $db->prepare("SELECT SUM(total) FROM extractions WHERE user_id = ? AND DATE(created_at) = DATE('now') AND status != 'failed'");
     $stmt->execute([$user_id]);
     $today_used = (int)$stmt->fetchColumn();
@@ -64,7 +68,6 @@ function deductLimit($user_id, $amount) {
 
 function redeemLicense($user_id, $code) {
     $db = Database::getInstance()->getConnection();
-    // SQLite uses datetime('now') instead of NOW()
     $stmt = $db->prepare("SELECT id, limit_amount FROM licenses WHERE code = ? AND used = 0 AND (expiry_date IS NULL OR expiry_date > datetime('now'))");
     $stmt->execute([$code]);
     $license = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -158,7 +161,7 @@ function createRandomUsers($count, $daily_limit = 500, $remaining_limit = 0) {
             $users[] = ['username' => $username, 'password' => $password];
             logAction($_SESSION['user_id'] ?? 0, 'Generated user: ' . $username);
         } catch(PDOException $e) {
-            if ($e->errorInfo[1] == 19) { // SQLite unique constraint error
+            if ($e->errorInfo[1] == 19) {
                 $username = generateRandomUsername() . rand(10, 99);
                 $stmt->execute([$username, $hash, $daily_limit, $remaining_limit]);
                 $users[] = ['username' => $username, 'password' => $password];
