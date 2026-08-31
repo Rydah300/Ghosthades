@@ -3,6 +3,14 @@
 // SQLITE — NO EXTERNAL DATABASE NEEDED
 // ============================================
 
+// Show errors temporarily
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
+
+// Load database class FIRST
+require_once __DIR__ . '/db_sqlite.php';
+
 // --- App Config ---
 define('SECRET_KEY', getenv('SECRET_KEY') ?: 'gh0sth4d3s_auto_' . md5(__DIR__));
 define('APP_URL', getenv('APP_URL') ?: 'https://your-app.railway.app');
@@ -27,7 +35,6 @@ if (!is_dir(__DIR__ . '/../storage')) {
     mkdir(__DIR__ . '/../storage', 0777, true);
 }
 
-// Default admin (hidden, auto-created)
 define('DEFAULT_ADMIN_USER', 'admin');
 define('DEFAULT_ADMIN_PASS', 'admin123');
 
