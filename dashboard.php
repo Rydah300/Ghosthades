@@ -276,7 +276,7 @@ $channel_url = TELEGRAM_CHANNEL_URL;
 
 <script>
 // ============================================
-// CLEAN URLs — No .php
+// CLEAN URLS — NO .php (Apache handles routing)
 // ============================================
 
 const API_URL = '/api/extract';
@@ -447,7 +447,6 @@ document.getElementById('extractBtn').addEventListener('click', async () => {
             body: JSON.stringify({ keyword, target_count: targetCount })
         });
         
-        // Check if response is OK
         if (!res.ok) {
             const text = await res.text();
             throw new Error('HTTP ' + res.status + ': ' + text);
@@ -732,7 +731,7 @@ async function loadTelegramStatus() {
             document.getElementById('telegramStatusText').innerText = '✅ connected';
         }
     } catch(e) {
-        // Silent fail — not critical
+        // Silent fail
     }
 }
 
@@ -749,7 +748,7 @@ async function loadStats() {
             }
         }
     } catch(e) {
-        // Silent fail — not critical
+        // Silent fail
     }
 }
 
@@ -759,7 +758,6 @@ loadStats();
 loadTelegramStatus();
 loadBatchHistory();
 
-// Auto-refresh
 setInterval(loadSaved, 30000);
 setInterval(loadStats, 30000);
 setInterval(loadBatchHistory, 60000);
