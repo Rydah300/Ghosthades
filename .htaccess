@@ -1,0 +1,55 @@
+RewriteEngine On
+
+# Redirect /dashboard to dashboard.php (internally)
+RewriteRule ^dashboard$ dashboard.php [L]
+RewriteRule ^dashboard/$ dashboard.php [L]
+
+# Redirect /admin to admin.php
+RewriteRule ^admin$ admin.php [L]
+RewriteRule ^admin/$ admin.php [L]
+
+# Redirect /logout to logout.php
+RewriteRule ^logout$ logout.php [L]
+RewriteRule ^logout/$ logout.php [L]
+
+# Redirect /login to index.php
+RewriteRule ^login$ index.php [L]
+RewriteRule ^login/$ index.php [L]
+
+# API routes without .php
+RewriteRule ^api/extract$ api/extract.php [L]
+RewriteRule ^api/batch$ api/batch.php [L]
+RewriteRule ^api/saved$ api/saved.php [L]
+RewriteRule ^api/telegram$ api/telegram.php [L]
+RewriteRule ^api/licenses$ api/licenses.php [L]
+RewriteRule ^api/users$ api/users.php [L]
+RewriteRule ^api/stats$ api/stats.php [L]
+
+# Auto-add .php for clean URLs
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^([^/]+)/?$ $1.php [L]
+
+# Redirect .php URLs to clean URLs (SEO)
+RewriteCond %{THE_REQUEST} \.php [NC]
+RewriteRule ^(.*)\.php$ /$1 [L,R=301]
+
+# Security
+<FilesMatch "\.php$">
+    Order Allow,Deny
+    Deny from all
+</FilesMatch>
+
+<FilesMatch "^(index|dashboard|admin|api/.*)\.php$">
+    Order Allow,Deny
+    Allow from all
+</FilesMatch>
+
+Options -Indexes
+php_flag display_errors off
+php_flag expose_php off
+
+<Directory "storage">
+    Order Allow,Deny
+    Deny from all
+</Directory>
