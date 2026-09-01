@@ -1,11 +1,34 @@
 <?php 
 require_once 'includes/config.php'; 
-require_once 'includes/db_sqlite.php';
+require_once 'includes/db.php';
 
 // If already logged in, go to dashboard
 if (isset($_SESSION['user_id'])) {
     header('Location: /dashboard');
     exit;
+}
+
+// Handle login
+$loginError = '';
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    try {
+        $db = Database::getInstance()->getConnection();
+        $stmt = $db->prepare("SELECT * FROM users WHERE username = ?");
+        $stmt->execute([$_POST['username']]);
+        $user = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if ($user && password_verify($_POST['password'], $user['password'])) {
+            $_SESSION['user_id'] = $user['id'];
+            $_SESSION['role'] = $user['role'];
+            $_SESSION['username'] = $user['username'];
+            header('Location: /dashboard');
+            exit;
+        } else {
+            $loginError = 'Invalid credentials.';
+        }
+    } catch(Exception $e) {
+        $loginError = 'Login error. Please try again.';
+    }
 }
 ?>
 <!DOCTYPE html>
@@ -27,11 +50,11 @@ if (isset($_SESSION['user_id'])) {
         input::placeholder { color:#4a4a6a; }
         .btn { width:100%; background:linear-gradient(135deg,#a78bfa,#7c3aed); border:none; border-radius:1.4rem; padding:0.9rem; font-weight:600; font-size:1rem; color:#fff; cursor:pointer; transition:all 0.3s; }
         .btn:hover { transform:scale(1.01); box-shadow:0 8px 40px rgba(167,139,250,0.3); }
-        .btn:active { transform:scale(0.98); }
-        .error { background:rgba(239,68,68,0.12); border:1px solid rgba(239,68,68,0.2); border-radius:1.2rem; padding:0.7rem 1.2rem; color:#fca5a5; font-size:0.85rem; margin-top:1rem; display:none; }
+        .error { background:rgba(239,68,68,0.12); border:1px solid rgba(239,68,68,0.2); border-radius:1.2rem; padding:0.7rem 1.2rem; color:#fca5a5; font-size:0.85rem; margin-top:1rem; }
         .footer { margin-top:1.5rem; text-align:center; color:#4a4a6a; font-size:0.7rem; letter-spacing:0.04em; }
         .status-dot { display:inline-block; width:6px; height:6px; background:#22c55e; border-radius:50%; margin-right:6px; animation:pulse 2s infinite; }
         @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:0.5;} }
+        .hidden { display:none; }
     </style>
 </head>
 <body>
@@ -45,39 +68,9 @@ if (isset($_SESSION['user_id'])) {
         <label>password</label>
         <input type="password" name="password" placeholder="••••••••" required>
         <button class="btn" type="submit">→ unlock gateway</button>
-        <div class="error" id="loginError">⚠ invalid credentials.</div>
+        <div class="error <?= empty($loginError) ? 'hidden' : '' ?>" id="loginError">⚠ <?= htmlspecialchars($loginError) ?></div>
     </form>
     <div class="footer">encrypted · 6767</div>
 </div>
-<?php
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    try {
-        $db = Database::getInstance()->getConnection();
-        $stmt = $db->prepare("SELECT * FROM users WHERE username = ?");
-        $stmt->execute([$_POST['username']]);
-        $user = $stmt->fetch(PDO::FETCH_ASSOC);
-        
-        if ($user && password_verify($_POST['password'], $user['password'])) {
-            $_SESSION['user_id'] = $user['id'];
-            $_SESSION['role'] = $user['role'];
-            $_SESSION['username'] = $user['username'];
-            
-            // Log login
-            try {
-                $logStmt = $db->prepare("INSERT INTO logs (user_id, action, ip) VALUES (?, ?, ?)");
-                $logStmt->execute([$user['id'], 'Login', $_SERVER['REMOTE_ADDR'] ?? 'unknown']);
-            } catch(Exception $e) {}
-            
-            header('Location: /dashboard');
-            exit;
-        } else {
-            echo "<script>document.getElementById('loginError').style.display='block';</script>";
-        }
-    } catch(Exception $e) {
-        echo "<script>document.getElementById('loginError').style.display='block';</script>";
-        error_log("Login error: " . $e->getMessage());
-    }
-}
-?>
 </body>
 </html>
