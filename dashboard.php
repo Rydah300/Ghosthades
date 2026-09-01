@@ -1,14 +1,9 @@
 <?php
-// Force error display for debugging
-ini_set('display_errors', 1);
-error_reporting(E_ALL);
-
 require_once 'includes/config.php';
 require_once 'includes/auth.php';
 
-// Check if logged in
 if (!isset($_SESSION['user_id'])) {
-    header('Location: index.php');
+    header('Location: /');
     exit;
 }
 
@@ -110,6 +105,7 @@ $channel_url = TELEGRAM_CHANNEL_URL;
         @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:0.5;} }
         @media (max-width:768px) { .sidebar { display:none; } .main { padding:1rem; } }
         ::-webkit-scrollbar { width:4px; } ::-webkit-scrollbar-track { background:transparent; } ::-webkit-scrollbar-thumb { background:#3b3b5a; border-radius:10px; }
+        .error-text { color:#ef4444; font-size:0.85rem; margin-top:0.5rem; }
     </style>
 </head>
 <body>
@@ -123,10 +119,10 @@ $channel_url = TELEGRAM_CHANNEL_URL;
         <a href="#" onclick="showTab('license')"><span class="icon">🎫</span> License</a>
         <a href="#" onclick="showTab('profile')"><span class="icon">👤</span> Profile</a>
         <?php if ($_SESSION['role'] === 'admin'): ?>
-        <a href="admin.php"><span class="icon">🔧</span> Admin</a>
+        <a href="/admin"><span class="icon">🔧</span> Admin</a>
         <?php endif; ?>
         <div class="divider"></div>
-        <a href="logout.php"><span class="icon">🚪</span> Logout</a>
+        <a href="/logout"><span class="icon">🚪</span> Logout</a>
     </div>
     <div class="sidebar-user">
         <strong><?= htmlspecialchars($_SESSION['username']) ?></strong>
@@ -184,6 +180,7 @@ $channel_url = TELEGRAM_CHANNEL_URL;
                 <span id="extractStatus" style="color:#6b6b8a;font-size:0.85rem;align-self:center;"></span>
             </div>
             <div id="results-container">ready, gng. drop a keyword.</div>
+            <div id="errorDisplay" class="error-text hidden"></div>
             <div class="domain-tags" id="domainTags"></div>
         </div>
     </div>
@@ -278,12 +275,17 @@ $channel_url = TELEGRAM_CHANNEL_URL;
 </div>
 
 <script>
-const API_URL = '/api/extract.php';
-const BATCH_API = '/api/batch.php';
-const SAVED_API = '/api/saved.php';
-const TELEGRAM_API = '/api/telegram.php';
-const LICENSE_API = '/api/licenses.php';
-const USER_API = '/api/users.php';
+// ============================================
+// CLEAN URLs — No .php
+// ============================================
+
+const API_URL = '/api/extract';
+const BATCH_API = '/api/batch';
+const SAVED_API = '/api/saved';
+const TELEGRAM_API = '/api/telegram';
+const LICENSE_API = '/api/licenses';
+const USER_API = '/api/users';
+
 let currentEmails = [];
 let currentDomainStats = {};
 let currentExtractionId = null;
@@ -297,6 +299,13 @@ function showToast(message, type = 'success') {
     toast.innerText = message;
     document.body.appendChild(toast);
     setTimeout(() => toast.remove(), 5000);
+}
+
+function showError(message) {
+    const errorDisplay = document.getElementById('errorDisplay');
+    errorDisplay.classList.remove('hidden');
+    errorDisplay.innerText = '❌ ' + message;
+    setTimeout(() => errorDisplay.classList.add('hidden'), 8000);
 }
 
 function showTab(tab) {
@@ -327,67 +336,89 @@ document.getElementById('changePasswordBtn').addEventListener('click', async () 
         return;
     }
     
-    const res = await fetch(USER_API, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'change_password', current, new_password: newPass })
-    });
-    const data = await res.json();
-    if (data.status === 'ok') {
-        result.innerHTML = '<span style="color:#22c55e;">✅ Password updated successfully!</span>';
-        document.getElementById('currentPassword').value = '';
-        document.getElementById('newPassword').value = '';
-        document.getElementById('confirmPassword').value = '';
-        showToast('Password updated!');
-    } else {
-        result.innerHTML = '<span style="color:#ef4444;">❌ ' + (data.error || 'Failed to update password.') + '</span>';
+    try {
+        const res = await fetch(USER_API, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'change_password', current, new_password: newPass })
+        });
+        const data = await res.json();
+        if (data.status === 'ok') {
+            result.innerHTML = '<span style="color:#22c55e;">✅ Password updated successfully!</span>';
+            document.getElementById('currentPassword').value = '';
+            document.getElementById('newPassword').value = '';
+            document.getElementById('confirmPassword').value = '';
+            showToast('Password updated!');
+        } else {
+            result.innerHTML = '<span style="color:#ef4444;">❌ ' + (data.error || 'Failed to update password.') + '</span>';
+        }
+    } catch(e) {
+        showError('Network error: ' + e.message);
     }
 });
 
 // --- Saved ---
 async function loadSaved() {
-    const res = await fetch(SAVED_API + '?action=list');
-    const data = await res.json();
-    const list = document.getElementById('savedList');
-    if (data.length === 0) {
-        list.innerHTML = '<div style="color:#6b6b8a;padding:1rem;text-align:center;">no saved results yet.</div>';
-        return;
+    try {
+        const res = await fetch(SAVED_API + '?action=list');
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const data = await res.json();
+        const list = document.getElementById('savedList');
+        if (data.length === 0) {
+            list.innerHTML = '<div style="color:#6b6b8a;padding:1rem;text-align:center;">no saved results yet.</div>';
+            return;
+        }
+        list.innerHTML = data.map(item => `
+            <div class="saved-item">
+                <div class="info">
+                    <div class="name">${item.filename}</div>
+                    <div class="meta">${item.email_count} emails · ${item.created_at}</div>
+                </div>
+                <div class="actions">
+                    <button onclick="downloadSaved(${item.id})">⬇</button>
+                    <button onclick="sendSavedTelegram(${item.id})">✈️</button>
+                    <button onclick="deleteSaved(${item.id})" style="color:#ef4444;">✕</button>
+                </div>
+            </div>
+        `).join('');
+        document.getElementById('savedCount').innerText = data.length;
+    } catch(e) {
+        showError('Failed to load saved results: ' + e.message);
     }
-    list.innerHTML = data.map(item => `
-        <div class="saved-item">
-            <div class="info">
-                <div class="name">${item.filename}</div>
-                <div class="meta">${item.email_count} emails · ${item.created_at}</div>
-            </div>
-            <div class="actions">
-                <button onclick="downloadSaved(${item.id})">⬇</button>
-                <button onclick="sendSavedTelegram(${item.id})">✈️</button>
-                <button onclick="deleteSaved(${item.id})" style="color:#ef4444;">✕</button>
-            </div>
-        </div>
-    `).join('');
-    document.getElementById('savedCount').innerText = data.length;
 }
 
 async function downloadSaved(id) {
-    const res = await fetch(SAVED_API + '?action=download&id=' + id);
-    const blob = await res.blob();
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = 'emails.txt';
-    a.click();
+    try {
+        const res = await fetch(SAVED_API + '?action=download&id=' + id);
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const blob = await res.blob();
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'emails.txt';
+        a.click();
+    } catch(e) {
+        showError('Failed to download: ' + e.message);
+    }
 }
 
 async function sendSavedTelegram(id) {
-    const res = await fetch(SAVED_API + '?action=send_telegram&id=' + id);
-    const data = await res.json();
-    showToast(data.message || 'sent', data.status === 'ok' ? 'success' : 'error');
+    try {
+        const res = await fetch(SAVED_API + '?action=send_telegram&id=' + id);
+        const data = await res.json();
+        showToast(data.message || 'sent', data.status === 'ok' ? 'success' : 'error');
+    } catch(e) {
+        showError('Failed to send: ' + e.message);
+    }
 }
 
 async function deleteSaved(id) {
     if (!confirm('delete?')) return;
-    await fetch(SAVED_API + '?action=delete&id=' + id, { method: 'POST' });
-    loadSaved();
+    try {
+        await fetch(SAVED_API + '?action=delete&id=' + id, { method: 'POST' });
+        loadSaved();
+    } catch(e) {
+        showError('Failed to delete: ' + e.message);
+    }
 }
 
 // --- Extract ---
@@ -395,8 +426,10 @@ document.getElementById('extractBtn').addEventListener('click', async () => {
     const keyword = document.getElementById('keyword').value;
     const targetCount = parseInt(document.getElementById('targetCount').value) || 100;
     const status = document.getElementById('extractStatus');
+    const errorDisplay = document.getElementById('errorDisplay');
     
     if (!keyword) { showToast('need a keyword.', 'error'); return; }
+    errorDisplay.classList.add('hidden');
     
     const remaining = parseInt(document.getElementById('sidebarRemaining').innerText.replace(/,/g, ''));
     if (remaining < targetCount && remaining < 99999) {
@@ -413,9 +446,22 @@ document.getElementById('extractBtn').addEventListener('click', async () => {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ keyword, target_count: targetCount })
         });
+        
+        // Check if response is OK
+        if (!res.ok) {
+            const text = await res.text();
+            throw new Error('HTTP ' + res.status + ': ' + text);
+        }
+        
         const data = await res.json();
         
-        if (data.emails) {
+        if (data.error) {
+            showError(data.error);
+            status.innerText = '❌ failed';
+            return;
+        }
+        
+        if (data.emails && data.emails.length > 0) {
             currentEmails = data.emails;
             currentDomainStats = data.domain_stats || {};
             currentExtractionId = data.extraction_id;
@@ -450,10 +496,12 @@ document.getElementById('extractBtn').addEventListener('click', async () => {
         } else {
             document.getElementById('results-container').innerText = '❌ no emails found';
             status.innerText = '❌ failed';
+            showError('No emails found for this keyword.');
         }
     } catch(e) {
         document.getElementById('results-container').innerText = 'error: ' + e.message;
         status.innerText = '❌ error';
+        showError(e.message);
     }
 });
 
@@ -473,24 +521,32 @@ document.getElementById('exportTxt').addEventListener('click', () => {
 
 document.getElementById('saveResultBtn').addEventListener('click', async () => {
     if (currentEmails.length === 0) return showToast('extract first', 'error');
-    const res = await fetch(SAVED_API, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'save', extraction_id: currentExtractionId })
-    });
-    const data = await res.json();
-    if (data.status === 'ok') { showToast('saved'); loadSaved(); }
+    try {
+        const res = await fetch(SAVED_API, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'save', extraction_id: currentExtractionId })
+        });
+        const data = await res.json();
+        if (data.status === 'ok') { showToast('saved'); loadSaved(); }
+    } catch(e) {
+        showError('Failed to save: ' + e.message);
+    }
 });
 
 document.getElementById('sendTelegramBtn').addEventListener('click', async () => {
     if (currentEmails.length === 0) return showToast('extract first', 'error');
-    const res = await fetch(TELEGRAM_API, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'send_results', emails: currentEmails })
-    });
-    const data = await res.json();
-    showToast(data.message || 'sent', data.status === 'ok' ? 'success' : 'error');
+    try {
+        const res = await fetch(TELEGRAM_API, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'send_results', emails: currentEmails })
+        });
+        const data = await res.json();
+        showToast(data.message || 'sent', data.status === 'ok' ? 'success' : 'error');
+    } catch(e) {
+        showError('Failed to send: ' + e.message);
+    }
 });
 
 // --- Batch ---
@@ -544,54 +600,63 @@ document.getElementById('batchExtractBtn').addEventListener('click', async () =>
         }
     } catch(e) {
         status.innerText = '❌ error: ' + e.message;
+        showError(e.message);
     }
 });
 
 async function pollBatch(batchId) {
-    const res = await fetch(BATCH_API + '?action=status&batch_id=' + batchId);
-    const data = await res.json();
-    const log = document.getElementById('processLog');
-    const status = document.getElementById('batchStatus');
-    
-    if (data.status === 'processing') {
-        status.innerText = `🔄 ${data.processed_keywords}/${data.total_keywords} keywords processed · ${data.total_emails} emails`;
-    } else if (data.status === 'completed') {
-        status.innerText = `✅ completed · ${data.total_emails} emails from ${data.total_keywords} keywords`;
-        if (batchPollInterval) clearInterval(batchPollInterval);
-        loadBatchHistory();
-        loadStats();
-        showToast('batch completed! ' + data.total_emails + ' emails');
-    } else if (data.status === 'failed') {
-        status.innerText = '❌ failed';
-        if (batchPollInterval) clearInterval(batchPollInterval);
-    }
-    
-    if (data.logs) {
-        log.innerHTML = data.logs.map(entry => `
-            <div class="log-entry">
-                <span class="time">${entry.time || ''}</span>
-                <span class="${entry.type}">${entry.message}</span>
-            </div>
-        `).join('');
-        log.scrollTop = log.scrollHeight;
+    try {
+        const res = await fetch(BATCH_API + '?action=status&batch_id=' + batchId);
+        const data = await res.json();
+        const log = document.getElementById('processLog');
+        const status = document.getElementById('batchStatus');
+        
+        if (data.status === 'processing') {
+            status.innerText = `🔄 ${data.processed_keywords}/${data.total_keywords} keywords processed · ${data.total_emails} emails`;
+        } else if (data.status === 'completed') {
+            status.innerText = `✅ completed · ${data.total_emails} emails from ${data.total_keywords} keywords`;
+            if (batchPollInterval) clearInterval(batchPollInterval);
+            loadBatchHistory();
+            loadStats();
+            showToast('batch completed! ' + data.total_emails + ' emails');
+        } else if (data.status === 'failed') {
+            status.innerText = '❌ failed';
+            if (batchPollInterval) clearInterval(batchPollInterval);
+        }
+        
+        if (data.logs) {
+            log.innerHTML = data.logs.map(entry => `
+                <div class="log-entry">
+                    <span class="time">${entry.time || ''}</span>
+                    <span class="${entry.type}">${entry.message}</span>
+                </div>
+            `).join('');
+            log.scrollTop = log.scrollHeight;
+        }
+    } catch(e) {
+        showError('Batch polling error: ' + e.message);
     }
 }
 
 async function loadBatchHistory() {
-    const res = await fetch(BATCH_API + '?action=history');
-    const data = await res.json();
-    const container = document.getElementById('batchHistory');
-    if (data.length === 0) {
-        container.innerHTML = '<div style="color:#6b6b8a;padding:0.5rem 0;">no batches yet.</div>';
-        return;
+    try {
+        const res = await fetch(BATCH_API + '?action=history');
+        const data = await res.json();
+        const container = document.getElementById('batchHistory');
+        if (data.length === 0) {
+            container.innerHTML = '<div style="color:#6b6b8a;padding:0.5rem 0;">no batches yet.</div>';
+            return;
+        }
+        container.innerHTML = data.map(b => `
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:0.5rem 0;border-bottom:1px solid rgba(255,255,255,0.03);font-size:0.85rem;">
+                <span>#${b.id} · ${b.total_keywords} keywords · ${b.total_emails} emails</span>
+                <span class="batch-status ${b.status}">${b.status}</span>
+                <span style="color:#6b6b8a;font-size:0.65rem;">${b.created_at}</span>
+            </div>
+        `).join('');
+    } catch(e) {
+        showError('Failed to load batch history: ' + e.message);
     }
-    container.innerHTML = data.map(b => `
-        <div style="display:flex;justify-content:space-between;align-items:center;padding:0.5rem 0;border-bottom:1px solid rgba(255,255,255,0.03);font-size:0.85rem;">
-            <span>#${b.id} · ${b.total_keywords} keywords · ${b.total_emails} emails</span>
-            <span class="batch-status ${b.status}">${b.status}</span>
-            <span style="color:#6b6b8a;font-size:0.65rem;">${b.created_at}</span>
-        </div>
-    `).join('');
 }
 
 // --- License ---
@@ -599,19 +664,23 @@ document.getElementById('redeemLicenseBtn').addEventListener('click', async () =
     const code = document.getElementById('licenseCode').value.trim();
     if (!code) { showToast('enter a license code', 'error'); return; }
     
-    const res = await fetch(LICENSE_API, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'redeem', code })
-    });
-    const data = await res.json();
-    
-    if (data.success) {
-        showToast(data.message, 'success');
-        document.getElementById('licenseCode').value = '';
-        loadStats();
-    } else {
-        showToast(data.message, 'error');
+    try {
+        const res = await fetch(LICENSE_API, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'redeem', code })
+        });
+        const data = await res.json();
+        
+        if (data.success) {
+            showToast(data.message, 'success');
+            document.getElementById('licenseCode').value = '';
+            loadStats();
+        } else {
+            showToast(data.message, 'error');
+        }
+    } catch(e) {
+        showError('Failed to redeem: ' + e.message);
     }
 });
 
@@ -621,57 +690,76 @@ document.getElementById('connectTelegramBtn').addEventListener('click', async ()
     const chatId = document.getElementById('telegramChatId').value;
     if (!token || !chatId) return showToast('fill both fields', 'error');
     
-    const res = await fetch(TELEGRAM_API, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'connect', bot_token: token, chat_id: chatId })
-    });
-    const data = await res.json();
-    if (data.status === 'ok') {
-        document.getElementById('telegramDot').className = 'dot on';
-        document.getElementById('telegramStatusText').innerText = '✅ connected!';
-        showToast('✅ bot connected!');
-    } else {
-        showToast('❌ failed: ' + (data.error || 'unknown'), 'error');
+    try {
+        const res = await fetch(TELEGRAM_API, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'connect', bot_token: token, chat_id: chatId })
+        });
+        const data = await res.json();
+        if (data.status === 'ok') {
+            document.getElementById('telegramDot').className = 'dot on';
+            document.getElementById('telegramStatusText').innerText = '✅ connected!';
+            showToast('✅ bot connected!');
+        } else {
+            showToast('❌ failed: ' + (data.error || 'unknown'), 'error');
+        }
+    } catch(e) {
+        showError('Failed to connect: ' + e.message);
     }
 });
 
 document.getElementById('testTelegramBtn').addEventListener('click', async () => {
-    const res = await fetch(TELEGRAM_API, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'test' })
-    });
-    const data = await res.json();
-    showToast(data.message || 'test sent', data.status === 'ok' ? 'success' : 'error');
+    try {
+        const res = await fetch(TELEGRAM_API, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'test' })
+        });
+        const data = await res.json();
+        showToast(data.message || 'test sent', data.status === 'ok' ? 'success' : 'error');
+    } catch(e) {
+        showError('Failed to send test: ' + e.message);
+    }
 });
 
 async function loadTelegramStatus() {
-    const res = await fetch(TELEGRAM_API + '?action=status');
-    const data = await res.json();
-    if (data.connected) {
-        document.getElementById('telegramDot').className = 'dot on';
-        document.getElementById('telegramStatusText').innerText = '✅ connected';
+    try {
+        const res = await fetch(TELEGRAM_API + '?action=status');
+        const data = await res.json();
+        if (data.connected) {
+            document.getElementById('telegramDot').className = 'dot on';
+            document.getElementById('telegramStatusText').innerText = '✅ connected';
+        }
+    } catch(e) {
+        // Silent fail — not critical
     }
 }
 
 async function loadStats() {
-    const res = await fetch('/api/stats.php');
-    const stats = await res.json();
-    if (stats) {
-        document.getElementById('totalEmails').innerText = stats.total || 0;
-        document.getElementById('todayExtracts').innerText = stats.today || 0;
-        document.getElementById('savedCount').innerText = stats.saved || 0;
-        if (stats.remaining !== undefined) {
-            document.getElementById('sidebarRemaining').innerText = stats.remaining.toLocaleString();
+    try {
+        const res = await fetch('/api/stats');
+        const stats = await res.json();
+        if (stats) {
+            document.getElementById('totalEmails').innerText = stats.total || 0;
+            document.getElementById('todayExtracts').innerText = stats.today || 0;
+            document.getElementById('savedCount').innerText = stats.saved || 0;
+            if (stats.remaining !== undefined) {
+                document.getElementById('sidebarRemaining').innerText = stats.remaining.toLocaleString();
+            }
         }
+    } catch(e) {
+        // Silent fail — not critical
     }
 }
 
+// --- Init ---
 loadSaved();
 loadStats();
 loadTelegramStatus();
 loadBatchHistory();
+
+// Auto-refresh
 setInterval(loadSaved, 30000);
 setInterval(loadStats, 30000);
 setInterval(loadBatchHistory, 60000);
