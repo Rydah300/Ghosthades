@@ -1,11 +1,11 @@
 <?php
 // ============================================
-// AUTH — LOGIN, LIMITS, LICENSES
+// AUTH — FIXED REDIRECTS FOR CLEAN URLs
 // ============================================
 
 function requireLogin() {
     if (!isset($_SESSION['user_id'])) {
-        header('Location: index.php');
+        header('Location: /');
         exit;
     }
 }
@@ -25,7 +25,6 @@ function checkUserLimits($user_id) {
     $user = $stmt->fetch(PDO::FETCH_ASSOC);
     if (!$user) return ['daily' => 0, 'remaining' => 0, 'used' => 0];
     
-    // SQLite date format
     $stmt = $db->prepare("SELECT SUM(total) FROM extractions WHERE user_id = ? AND DATE(created_at) = DATE('now') AND status != 'failed'");
     $stmt->execute([$user_id]);
     $today_used = (int)$stmt->fetchColumn();
