@@ -8,8 +8,8 @@ if (isset($_SESSION['user_id'])) {
     exit;
 }
 
-// Handle login
 $loginError = '';
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     try {
         $db = Database::getInstance()->getConnection();
@@ -50,11 +50,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         input::placeholder { color:#4a4a6a; }
         .btn { width:100%; background:linear-gradient(135deg,#a78bfa,#7c3aed); border:none; border-radius:1.4rem; padding:0.9rem; font-weight:600; font-size:1rem; color:#fff; cursor:pointer; transition:all 0.3s; }
         .btn:hover { transform:scale(1.01); box-shadow:0 8px 40px rgba(167,139,250,0.3); }
-        .error { background:rgba(239,68,68,0.12); border:1px solid rgba(239,68,68,0.2); border-radius:1.2rem; padding:0.7rem 1.2rem; color:#fca5a5; font-size:0.85rem; margin-top:1rem; }
+        .error { background:rgba(239,68,68,0.12); border:1px solid rgba(239,68,68,0.2); border-radius:1.2rem; padding:0.7rem 1.2rem; color:#fca5a5; font-size:0.85rem; margin-top:1rem; display:<?= empty($loginError) ? 'none' : 'block'; ?>; }
         .footer { margin-top:1.5rem; text-align:center; color:#4a4a6a; font-size:0.7rem; letter-spacing:0.04em; }
         .status-dot { display:inline-block; width:6px; height:6px; background:#22c55e; border-radius:50%; margin-right:6px; animation:pulse 2s infinite; }
         @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:0.5;} }
-        .hidden { display:none; }
     </style>
 </head>
 <body>
@@ -68,7 +67,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <label>password</label>
         <input type="password" name="password" placeholder="••••••••" required>
         <button class="btn" type="submit">→ unlock gateway</button>
-        <div class="error <?= empty($loginError) ? 'hidden' : '' ?>" id="loginError">⚠ <?= htmlspecialchars($loginError) ?></div>
+        <?php if (!empty($loginError)): ?>
+        <div class="error">⚠ <?= htmlspecialchars($loginError) ?></div>
+        <?php endif; ?>
     </form>
     <div class="footer">encrypted · 6767</div>
 </div>
