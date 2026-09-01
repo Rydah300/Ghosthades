@@ -1,7 +1,7 @@
-<?php 
-require_once 'includes/config.php'; 
-require_once 'includes/auth.php'; 
-requireAdmin(); 
+<?php
+require_once 'includes/config.php';
+require_once 'includes/auth.php';
+requireAdmin();
 ?>
 <!DOCTYPE html>
 <html>
@@ -139,34 +139,37 @@ function showToast(message, type = 'success') {
 }
 
 async function loadUsers() {
-    const res = await fetch('/api/users?action=list');
-    const users = await res.json();
-    const tbody = document.getElementById('userTableBody');
-    tbody.innerHTML = users.map(u => `
-        <tr>
-            <td>${u.id}</td>
-            <td>${u.username}</td>
-            <td><span style="color:${u.role === 'admin' ? '#a78bfa' : '#6b6b8a'}">${u.role}</span></td>
-            <td>${u.daily_limit >= 99999 ? '∞' : u.daily_limit}</td>
-            <td>${u.remaining_limit >= 99999 ? '∞' : u.remaining_limit}</td>
-            <td>${u.telegram_connected ? '✅' : '❌'}</td>
-            <td>
-                ${u.role !== 'admin' ? `<button class="btn btn-danger" onclick="deleteUser(${u.id})">✕</button>` : '—'}
-            </td>
-        </tr>
-    `).join('');
-    
-    const select = document.getElementById('licenseUser');
-    select.innerHTML = '<option value="">— any user —</option>';
-    users.forEach(u => {
-        const opt = document.createElement('option');
-        opt.value = u.id;
-        opt.innerText = u.username + (u.role === 'admin' ? ' (admin)' : '');
-        select.appendChild(opt);
-    });
+    try {
+        const res = await fetch('/api/users?action=list');
+        const users = await res.json();
+        const tbody = document.getElementById('userTableBody');
+        tbody.innerHTML = users.map(u => `
+            <tr>
+                <td>${u.id}</td>
+                <td>${u.username}</td>
+                <td><span style="color:${u.role === 'admin' ? '#a78bfa' : '#6b6b8a'}">${u.role}</span></td>
+                <td>${u.daily_limit >= 99999 ? '∞' : u.daily_limit}</td>
+                <td>${u.remaining_limit >= 99999 ? '∞' : u.remaining_limit}</td>
+                <td>${u.telegram_connected ? '✅' : '❌'}</td>
+                <td>
+                    ${u.role !== 'admin' ? `<button class="btn btn-danger" onclick="deleteUser(${u.id})">✕</button>` : '—'}
+                </td>
+            </tr>
+        `).join('');
+        
+        const select = document.getElementById('licenseUser');
+        select.innerHTML = '<option value="">— any user —</option>';
+        users.forEach(u => {
+            const opt = document.createElement('option');
+            opt.value = u.id;
+            opt.innerText = u.username + (u.role === 'admin' ? ' (admin)' : '');
+            select.appendChild(opt);
+        });
+    } catch(e) {
+        showToast('Failed to load users', 'error');
+    }
 }
 
-// Add user
 document.getElementById('addUserBtn').addEventListener('click', async () => {
     let username = document.getElementById('newUsername').value.trim();
     let password = document.getElementById('newPassword').value.trim();
@@ -179,46 +182,52 @@ document.getElementById('addUserBtn').addEventListener('click', async () => {
     
     if (!username || !password) return showToast('fill all fields', 'error');
     
-    const res = await fetch('/api/users', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'add', username, password, role, daily_limit, remaining_limit })
-    });
-    const data = await res.json();
-    if (data.status === 'ok') {
-        showToast('user added: ' + username);
-        loadUsers();
-        document.getElementById('newUsername').value = '';
-        document.getElementById('newPassword').value = '';
-    } else {
-        showToast('error: ' + (data.error || 'unknown'), 'error');
+    try {
+        const res = await fetch('/api/users', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'add', username, password, role, daily_limit, remaining_limit })
+        });
+        const data = await res.json();
+        if (data.status === 'ok') {
+            showToast('user added: ' + username);
+            loadUsers();
+            document.getElementById('newUsername').value = '';
+            document.getElementById('newPassword').value = '';
+        } else {
+            showToast('error: ' + (data.error || 'unknown'), 'error');
+        }
+    } catch(e) {
+        showToast('Failed to add user', 'error');
     }
 });
 
-// Generate random single user
 document.getElementById('generateRandomUserBtn').addEventListener('click', async () => {
     const username = generateRandomUsername();
     const password = generateRandomPassword();
     const daily_limit = document.getElementById('newLimit').value || 500;
     const remaining_limit = document.getElementById('newRemaining').value || 0;
     
-    const res = await fetch('/api/users', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'add', username, password, role: 'user', daily_limit, remaining_limit })
-    });
-    const data = await res.json();
-    if (data.status === 'ok') {
-        showToast('✅ generated: ' + username);
-        loadUsers();
-        generatedUsers.push({ username, password });
-        showGeneratedUsers();
-    } else {
-        showToast('error: ' + (data.error || 'unknown'), 'error');
+    try {
+        const res = await fetch('/api/users', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'add', username, password, role: 'user', daily_limit, remaining_limit })
+        });
+        const data = await res.json();
+        if (data.status === 'ok') {
+            showToast('✅ generated: ' + username);
+            loadUsers();
+            generatedUsers.push({ username, password });
+            showGeneratedUsers();
+        } else {
+            showToast('error: ' + (data.error || 'unknown'), 'error');
+        }
+    } catch(e) {
+        showToast('Failed to generate user', 'error');
     }
 });
 
-// Bulk users
 document.getElementById('generateBulkUsersBtn').addEventListener('click', () => {
     const controls = document.getElementById('bulkUserControls');
     controls.style.display = controls.style.display === 'none' ? 'block' : 'none';
@@ -238,20 +247,24 @@ document.getElementById('executeBulkUsersBtn').addEventListener('click', async (
         return;
     }
     
-    const res = await fetch('/api/users', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'generate_bulk', count, daily_limit, remaining_limit })
-    });
-    const data = await res.json();
-    if (data.status === 'ok') {
-        generatedUsers = generatedUsers.concat(data.users);
-        showGeneratedUsers();
-        loadUsers();
-        showToast('✅ generated ' + data.users.length + ' users');
-        document.getElementById('bulkUserControls').style.display = 'none';
-    } else {
-        showToast('error: ' + (data.error || 'unknown'), 'error');
+    try {
+        const res = await fetch('/api/users', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'generate_bulk', count, daily_limit, remaining_limit })
+        });
+        const data = await res.json();
+        if (data.status === 'ok') {
+            generatedUsers = generatedUsers.concat(data.users);
+            showGeneratedUsers();
+            loadUsers();
+            showToast('✅ generated ' + data.users.length + ' users');
+            document.getElementById('bulkUserControls').style.display = 'none';
+        } else {
+            showToast('error: ' + (data.error || 'unknown'), 'error');
+        }
+    } catch(e) {
+        showToast('Failed to generate users', 'error');
     }
 });
 
@@ -306,13 +319,17 @@ document.getElementById('clearUsersBtn').addEventListener('click', () => {
 
 async function deleteUser(id) {
     if (!confirm('remove this user?')) return;
-    await fetch('/api/users', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'delete', id })
-    });
-    showToast('user deleted');
-    loadUsers();
+    try {
+        await fetch('/api/users', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'delete', id })
+        });
+        showToast('user deleted');
+        loadUsers();
+    } catch(e) {
+        showToast('Failed to delete user', 'error');
+    }
 }
 
 // License Generation
@@ -321,17 +338,21 @@ document.getElementById('generateLicenseBtn').addEventListener('click', async ()
     const user_id = document.getElementById('licenseUser').value || null;
     const expiry = document.getElementById('licenseExpiry').value || null;
     
-    const res = await fetch('/api/licenses', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'generate', limit_amount: limit, user_id, expiry_days: expiry })
-    });
-    const data = await res.json();
-    if (data.status === 'ok') {
-        generatedLicenses = [data.code];
-        showGeneratedLicenses();
-        loadLicenses();
-        showToast('license generated: ' + data.code, 'success');
+    try {
+        const res = await fetch('/api/licenses', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'generate', limit_amount: limit, user_id, expiry_days: expiry })
+        });
+        const data = await res.json();
+        if (data.status === 'ok') {
+            generatedLicenses = [data.code];
+            showGeneratedLicenses();
+            loadLicenses();
+            showToast('license generated: ' + data.code, 'success');
+        }
+    } catch(e) {
+        showToast('Failed to generate license', 'error');
     }
 });
 
@@ -341,17 +362,21 @@ document.getElementById('generateBulkBtn').addEventListener('click', async () =>
     const expiry = document.getElementById('licenseExpiry').value || null;
     const count = 10;
     
-    const res = await fetch('/api/licenses', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'generate', limit_amount: limit, user_id, expiry_days: expiry, count })
-    });
-    const data = await res.json();
-    if (data.status === 'ok') {
-        generatedLicenses = data.codes;
-        showGeneratedLicenses();
-        loadLicenses();
-        showToast('generated ' + data.count + ' licenses', 'success');
+    try {
+        const res = await fetch('/api/licenses', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'generate', limit_amount: limit, user_id, expiry_days: expiry, count })
+        });
+        const data = await res.json();
+        if (data.status === 'ok') {
+            generatedLicenses = data.codes;
+            showGeneratedLicenses();
+            loadLicenses();
+            showToast('generated ' + data.count + ' licenses', 'success');
+        }
+    } catch(e) {
+        showToast('Failed to generate licenses', 'error');
     }
 });
 
@@ -394,29 +419,37 @@ document.getElementById('downloadLicensesBtn').addEventListener('click', () => {
 });
 
 async function loadLicenses() {
-    const res = await fetch('/api/licenses?action=list');
-    const licenses = await res.json();
-    const container = document.getElementById('licenseListContainer');
-    if (licenses.length === 0) {
-        container.innerHTML = '<div style="color:#6b6b8a;padding:1rem;text-align:center;">no licenses generated yet.</div>';
-        return;
+    try {
+        const res = await fetch('/api/licenses?action=list');
+        const licenses = await res.json();
+        const container = document.getElementById('licenseListContainer');
+        if (licenses.length === 0) {
+            container.innerHTML = '<div style="color:#6b6b8a;padding:1rem;text-align:center;">no licenses generated yet.</div>';
+            return;
+        }
+        container.innerHTML = licenses.map(l => `
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:0.5rem 0;border-bottom:1px solid rgba(255,255,255,0.03);font-size:0.8rem;">
+                <span style="font-family:'Monaco',monospace;color:#f59e0b;">${l.code}</span>
+                <span>${l.limit_amount} limit</span>
+                <span style="color:${l.used ? '#22c55e' : '#6b6b8a'}">${l.used ? '✅ used by ' + (l.redeemed_by || 'unknown') : 'available'}</span>
+                <span style="color:#6b6b8a;font-size:0.65rem;">${l.created_at}</span>
+            </div>
+        `).join('');
+    } catch(e) {
+        // Silent fail
     }
-    container.innerHTML = licenses.map(l => `
-        <div style="display:flex;justify-content:space-between;align-items:center;padding:0.5rem 0;border-bottom:1px solid rgba(255,255,255,0.03);font-size:0.8rem;">
-            <span style="font-family:'Monaco',monospace;color:#f59e0b;">${l.code}</span>
-            <span>${l.limit_amount} limit</span>
-            <span style="color:${l.used ? '#22c55e' : '#6b6b8a'}">${l.used ? '✅ used by ' + (l.redeemed_by || 'unknown') : 'available'}</span>
-            <span style="color:#6b6b8a;font-size:0.65rem;">${l.created_at}</span>
-        </div>
-    `).join('');
 }
 
 async function loadLogs() {
-    const res = await fetch('/api/users?action=logs');
-    const logs = await res.json();
-    document.getElementById('logContainer').innerHTML = logs.map(l => 
-        `[${l.created_at}] ${l.username || 'system'}: ${l.action}`
-    ).join('\n') || 'no logs yet.';
+    try {
+        const res = await fetch('/api/users?action=logs');
+        const logs = await res.json();
+        document.getElementById('logContainer').innerHTML = logs.map(l => 
+            `[${l.created_at}] ${l.username || 'system'}: ${l.action}`
+        ).join('\n') || 'no logs yet.';
+    } catch(e) {
+        // Silent fail
+    }
 }
 
 function generateRandomUsername() {
