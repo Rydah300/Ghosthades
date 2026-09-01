@@ -1,5 +1,5 @@
 [phases.setup]
-nixPkgs = ["php82"]
+nixPkgs = ["php"]
 
 [phases.install]
 cmds = ["composer install --no-dev"]
