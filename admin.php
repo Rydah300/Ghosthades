@@ -38,13 +38,11 @@ requireAdmin();
         .row > * { flex:1; min-width:150px; }
         .logs { max-height:300px; overflow-y:auto; font-family:'Monaco',monospace; font-size:0.75rem; color:#6b6b8a; }
         .code-block { background:#0a0a14; border:1px solid rgba(255,255,255,0.04); border-radius:1rem; padding:1rem; font-family:'Monaco',monospace; font-size:0.75rem; color:#a78bfa; word-break:break-all; max-height:300px; overflow-y:auto; }
-        .code-block .cred { color:#f59e0b; }
         .toast { position:fixed; bottom:2rem; right:2rem; background:rgba(0,0,0,0.9); backdrop-filter:blur(20px); border:1px solid rgba(255,255,255,0.06); border-radius:1.2rem; padding:1rem 1.5rem; color:#e8e8f0; font-size:0.9rem; z-index:9999; animation:slideUp 0.3s ease; }
         .toast.success { border-color:rgba(34,197,94,0.3); }
         .toast.error { border-color:rgba(239,68,68,0.3); }
         @keyframes slideUp { from { opacity:0; transform:translateY(20px); } to { opacity:1; transform:translateY(0); } }
-        .generated-users-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(250px,1fr)); gap:0.5rem; margin-top:0.5rem; }
-        .generated-user-item { background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.04); border-radius:0.8rem; padding:0.5rem 0.8rem; font-size:0.75rem; }
+        .generated-user-item { background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.04); border-radius:0.8rem; padding:0.5rem 0.8rem; font-size:0.75rem; margin-bottom:0.3rem; }
         .generated-user-item .user { color:#a78bfa; font-weight:500; }
         .generated-user-item .pass { color:#f59e0b; font-family:'Monaco',monospace; }
     </style>
@@ -332,7 +330,7 @@ async function deleteUser(id) {
     }
 }
 
-// License Generation
+// License
 document.getElementById('generateLicenseBtn').addEventListener('click', async () => {
     const limit = document.getElementById('licenseLimit').value || 100;
     const user_id = document.getElementById('licenseUser').value || null;
