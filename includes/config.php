@@ -22,7 +22,7 @@ ini_set('session.use_only_cookies', 1);
 ini_set('session.cookie_httponly', 1);
 
 // --- Load Database ---
-require_once __DIR__ . '/db_sqlite.php';
+require_once __DIR__ . '/db.php';
 
 // --- App Config ---
 define('SECRET_KEY', getenv('SECRET_KEY') ?: 'gh0sth4d3s_auto_' . md5(__DIR__));
