@@ -1,6 +1,6 @@
 <?php
 // ============================================
-// AUTH — FIXED REDIRECTS FOR CLEAN URLs
+// AUTH — LOGIN, LIMITS, LICENSES
 // ============================================
 
 function requireLogin() {
