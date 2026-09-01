@@ -1,8 +1,9 @@
 {
   "build": {
-    "builder": "DOCKERFILE"
+    "builder": "NIXPACKS",
+    "buildCommand": "mkdir -p storage && chmod 755 storage"
   },
   "deploy": {
-    "startCommand": "apache2-foreground"
+    "startCommand": "php -S 0.0.0.0:$PORT -t ."
   }
 }
