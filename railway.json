@@ -1,7 +1,6 @@
 {
   "build": {
-    "builder": "NIXPACKS",
-    "buildCommand": "mkdir -p storage && chmod 755 storage"
+    "builder": "NIXPACKS"
   },
   "deploy": {
     "startCommand": "php -S 0.0.0.0:$PORT -t ."
